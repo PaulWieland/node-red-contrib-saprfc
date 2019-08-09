@@ -1,0 +1,252 @@
+<script type="text/x-red" data-template-name="saprfc-config">
+    <div class="form-row">
+        <label for="node-config-input-nickname"><i class="icon-bookmark"></i> Nickname</label>
+        <input type="text" id="node-config-input-nickname" placeholder="Prod" />
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-host"><i class="icon-bookmark"></i> Host</label>
+        <input type="text" id="node-config-input-host" placeholder="sapr3.mycompany.com" />
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-client"><i class="fa fa-bookmark"></i> Client</label>
+        <input type="text" id="node-config-input-client" placeholder="100"  style="width: 20%" />
+    </div>
+    <div class="form-row">
+        <label for="node-config-input-systemNumber"><i class="fa fa-bookmark"></i> System Number</label>
+        <input class="input-append-left" type="text" id="node-config-input-systemNumber" placeholder="15"  style="width: 20%" />
+    </div>
+	
+    <div class="form-row">
+        <label for="node-config-input-sapRouter"><i class="fa fa-bookmark"></i> Router (optional)</label>
+        <input class="input-append-left" type="text" id="node-config-input-sapRouter" />
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-username"><i class="fa fa-bookmark"></i> Username</label>
+        <input class="input-append-left" type="text" id="node-config-input-username" />
+    </div>
+
+    <div class="form-row">
+        <label for="node-config-input-password"><i class="fa fa-bookmark"></i> Password</label>
+        <input class="input-append-left" type="password" id="node-config-input-password">
+    </div>
+	
+    <div class="form-row">
+        <label for="node-config-input-lang"><i class="fa fa-bookmark"></i> Language</label>
+        <input class="input-append-left" type="text" id="node-config-input-lang" placeholder="EN" style="width: 20%" />
+    </div>
+
+    <div class="form-tips">
+	All settings are for the remote SAP System where Remote Function Calls would be made. These settings should match your SAP GUI connection settings.
+	<ul>
+		<li>Nickname: A friendly name for the system. (Dev/Test/Prod/etc)</li>
+		<li>Host: The IP or hostname.</li>
+		<li>Client: The client ID of the remote SAP System.</li>
+		<li>System Number: Also known as "Instance Number"</li>
+		<li>Username: make sure this user has authorization for the RFCs that will be called</li>
+		<li>Language: Two digit ISO code of the logon language</li>
+	</ul>
+		
+    </div>
+</script>
+<script type="text/javascript">
+(function() {
+	
+    RED.nodes.registerType('saprfc-config',{
+        category: 'config',
+        defaults: {
+			nickname: {value:"Prod",required:true},
+			//             host: {value:"",required:true},
+			//             client: {value:"100",required:true},
+			//             systemNumber: {value:"",required:false},
+			// sapRouter: {value:"",required:false},
+			//             username: {value:,required:true},
+			//             password: {value:100,required:true},
+			//             lang: {value:100,required:true}
+        },
+		credentials: {
+			nickname: {type: "text"},
+			host: {type: "text", required: true},
+			client: {type: "text", required: true},
+			systemNumber: {type: "text", required: true},
+			sapRouter: {type: "text"},
+			username: {type: "text", required: true},
+			password: {type: "password", required: true},
+			lang: {type: "text", required: true}
+		},
+        label: function() {
+            return this.nickname;
+        },
+        oneditprepare: function() {
+			console.log("on edit prepare", this)
+		},
+		exportable: false
+    });
+})();
+</script>
+
+
+
+<script type="text/x-red" data-template-name="call">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+	
+    <div class="form-row">
+        <label for="node-input-system"><i class="icon-tag"></i> System</label>
+        <input type="text" id="node-input-system">
+    </div>
+	
+    <div class="form-row">
+        <label for="node-input-remoteFunction"><i class="icon-tag"></i> Function To Call</label>
+        <input type="text" id="node-input-remoteFunction" placeholder="Enter RFC Name">
+    </div>
+	
+    <div class="form-tips">
+	<p>The input payload will be passed to the RFC - use a function node to build an object matching the RFC's specific requirements.</p>
+	<p>Example input payload to update a user email with <em>BAPI_USER_CHANGE</em>:
+	<pre>{
+  USERNAME: "SOME-USERNAME",
+  ADDRESS: {
+    E_MAIL: "user@company.com"
+  },
+  ADDRESSX: {
+    E_MAIL: "X"
+  }
+}</pre>
+	</p>
+	<p>The output payload contains the data returned by the RFC.</p>
+	<p>Use a <strong>Catch</strong> node to catch and process any errors encountered by the RFC.</p>		
+    </div>
+	
+		
+</script>
+
+<script type="text/x-red" data-help-name="call">
+    <p>Make an SAP Remote Function Call</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('call',{
+        category: 'sapRFC',
+        color: '#4091ed',
+        defaults: {
+            name: {value:""},
+			system: {type:"saprfc-config", required: true},
+			remoteFunction: {value:"", required: true}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "file.png",
+        label: function() {
+            return this.name||this.remoteFunction||"call";
+        }
+    });
+</script>
+	
+
+<script type="text/x-red" data-template-name="read table">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+	
+    <div class="form-row">
+        <label for="node-input-system"><i class="icon-tag"></i> System</label>
+        <input type="text" id="node-input-system">
+    </div>
+	
+    <div class="form-tips">
+	<p>The input payload will be passed to RFC_READ_TABLE - use a function node to build an object that looks like this:
+	<pre>{
+  QUERY_TABLE: "USR21",
+  FIELDS: ["BNAME","PERSNUMBER","ADDRNUMBER"],
+  OPTIONS: ["BNAME EQ 'SOME-USERNAME'"],
+  ROWCOUNT: 10
+}</pre>
+	</p>
+	<p>The output payload contains the parsed data returned by RFC_READ_TABLE.</p>
+	<p>Use a <strong>Catch</strong> node to catch and process any errors encountered by the RFC.</p>		
+    </div>
+	
+		
+</script>
+
+<script type="text/x-red" data-help-name="read table">
+    <p>Read data from an SAP Table</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('read table',{
+        category: 'sapRFC',
+        color: '#4091ed',
+        defaults: {
+            name: {value:"read table"},
+			system: {type:"saprfc-config", required: true},
+			remoteFunction: {value:""}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "file.png",
+        label: function() {
+            return this.name||"read table";
+        }
+    });
+</script>
+	
+<script type="text/x-red" data-template-name="field list">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name">
+    </div>
+	
+    <div class="form-row">
+        <label for="node-input-table"><i class="icon-tag"></i> Table</label>
+        <input type="text" id="node-input-table" placeholder="MARA">
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-condense"><i class="icon-tag"></i> Condense</label>
+        <input type="checkbox" id="node-input-condense" />
+    </div>
+	
+
+    <div class="form-row">
+        <label for="node-input-system"><i class="icon-tag"></i> System</label>
+        <input type="text" id="node-input-system">
+    </div>
+
+    <div class="form-tips">
+	<p>Useful for getting a list of available fields for `read table`.</p>
+	<p>The output object contains an object which describes the specified SAP table. If the `condensed` box is checked, the output will be an object containing only the field name and descriptions.</p>
+	<p>Use a <strong>Catch</strong> node to catch and process any errors encountered by the RFC.</p>		
+    </div>	
+</script>
+
+<script type="text/x-red" data-help-name="field list">
+    <p>Get the field list of an SAP table</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('field list',{
+        category: 'sapRFC',
+        color: '#4091ed',
+        defaults: {
+			name: {value:""},
+            table: {value:"", required: true},
+			condense: {value:"checked"},
+			system: {type:"saprfc-config", required: true},
+        },
+        inputs:1,
+        outputs:1,
+        icon: "file.png",
+        label: function() {
+            return this.name||"fields of " + this.table;
+        }
+    });
+</script>
+	
+	
