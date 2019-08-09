@@ -1,5 +1,4 @@
-node-red-contrib-saprfc
-=====================
+# node-red-contrib-saprfc
 
 Node-Red (http://nodered.org) nodes for communicating with SAP via node-rfc (https://github.com/SAP/node-rfc).
 
@@ -10,9 +9,9 @@ There are three nodes included:
 * field list - gets the field list of a table. This is a wrapper for RFC\_READ\_TABLE which only gets the field list.
 
 
-#Install
+# Install
 
-###Woah cowboy
+## Woah cowboy
 This package is a wrapper for node-rfc (https://github.com/SAP/node-rfc). Make sure you have a working install of node-rfc before continuing.
 
 Run the following command after you have done a global install of Node-RED & node-rfc
@@ -21,7 +20,7 @@ Run the following command after you have done a global install of Node-RED & nod
 
 You will need the connection parameters for your sap system.
 
-#Usage
+# Usage
 
 These nodes will appear in their own "sapRFC" catagory on the Node-Red pallet.
 
@@ -34,6 +33,6 @@ Use these programs at your own risk.
 
 Paul Wieland, https://github.com/PaulWieland
 
-#Feedback and Support
+# Feedback and Support
 
 Submit any issues here on github, or ping me @Paul W on the node-red slack channel.
