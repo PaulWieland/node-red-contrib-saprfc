@@ -11,9 +11,10 @@ There are three nodes included:
 
 # Install
 
-## Woah cowboy
+## Woah cowboy...
 This package is a wrapper for node-rfc (https://github.com/SAP/node-rfc). Make sure you have a working install of node-rfc before continuing.
 
+## Okay, I have a working node-rfc install
 Run the following command after you have done a global install of Node-RED & node-rfc
 
 	npm install -g node-red-contrib-saprfc
@@ -25,7 +26,7 @@ You will need the connection parameters for your sap system.
 These nodes will appear in their own "sapRFC" catagory on the Node-Red pallet.
 
 
-#Disclaimer
+# Disclaimer
 
 Use these programs at your own risk.
 
