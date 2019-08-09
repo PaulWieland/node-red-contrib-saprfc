@@ -1,5 +1,7 @@
 # node-red-contrib-saprfc
 
+Currently in Alpha state.
+
 Node-Red (http://nodered.org) nodes for communicating with SAP via node-rfc (https://github.com/SAP/node-rfc).
 
 There are three nodes included:

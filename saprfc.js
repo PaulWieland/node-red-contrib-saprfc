@@ -52,17 +52,24 @@ module.exports = function(RED) {
 					config.remoteFunction,
 					msg.payload
 				).then((res) => {
+					client.close();
+					
 					node.status({});
 					
 					msg.payload = res;
 					node.send(msg);
 				}).catch((err) => {
+					client.close();
+					
 					node.status({fill:"red",shape:"dot",text:"Error"});
 					
 					msg.sapError = err;
 					node.error("[saprfc:client.call] " + msg.key + "; use `catch` node to debug msg.sapError", msg);
+					
 				});
 			}).catch((err) => {
+				client.close();
+				
 				node.status({fill:"red",shape:"dot",text:"Connection Error"});
 				msg.sapError = err;
 				node.error("[saprfc:client.open] use `catch` node to debug msg.sapError", msg);
@@ -88,7 +95,7 @@ module.exports = function(RED) {
 				client: this.systemConfig.credentials.client,
 				lang: this.systemConfig.credentials.lang,
 			}
-			
+						
 			// create the saprouter property only if its defined in the config
 			this.systemConfig.credentials.sapRouter ? systemConfig.saprouter = this.systemConfig.credentials.sapRouter : "";
 				
@@ -103,6 +110,8 @@ module.exports = function(RED) {
 					"RFC_READ_TABLE",
 					msg.payload
 				).then((res) => {
+					client.close();
+					
 					node.status({});
 					
 					msg.payload = [];
@@ -111,7 +120,7 @@ module.exports = function(RED) {
 						var out = {};
 
 						res.FIELDS.forEach((col) => {
-							out[col.FIELDNAME] = row.WA.substr(col.OFFSET, col.LENGTH);
+							out[col.FIELDNAME] = row.WA.substr(col.OFFSET, col.LENGTH).trim();
 						});
 
 						msg.payload.push(out);
@@ -119,17 +128,24 @@ module.exports = function(RED) {
 
 					node.send(msg);
 				}).catch((err) => {
+					client.close();
+					
+					console.error("[saprfc:sapRFCReadTable -> client.call] ",err);
+					
 					node.status({fill:"red",shape:"dot",text:"Error"});
 					
 					msg.sapError = err;
 					node.error("[saprfc:client.call] " + msg.key + "; use `catch` node to debug msg.sapError", msg);
+					
 				});
 			}).catch((err) => {
+				client.close();
+				
 				node.status({fill:"red",shape:"dot",text:"Connection Error"});
 				msg.sapError = err;
 				node.error("[saprfc:client.open] use `catch` node to debug msg.sapError", msg);
 			});
-			
+
         });
     }
 	
@@ -168,6 +184,8 @@ module.exports = function(RED) {
 						NO_DATA: "X"
 					}
 				).then((res) => {
+					client.close();
+					
 					node.status({});
 					
 					if(config.condense){
@@ -182,17 +200,21 @@ module.exports = function(RED) {
 
 					node.send(msg);
 				}).catch((err) => {
+					client.close();
+					
 					node.status({fill:"red",shape:"dot",text:"Error"});
 					
 					msg.sapError = err;
 					node.error("[saprfc:client.call] " + msg.key + "; use `catch` node to debug msg.sapError", msg);
 				});
 			}).catch((err) => {
+				client.close();
+				
 				node.status({fill:"red",shape:"dot",text:"Connection Error"});
 				msg.sapError = err;
 				node.error("[saprfc:client.open] use `catch` node to debug msg.sapError", msg);
 			});
-			
+						
         });
     }
 	
