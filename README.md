@@ -14,7 +14,7 @@ There are three nodes included:
 # Install
 
 ## Woah cowboy...
-This package is a wrapper for node-rfc (https://github.com/SAP/node-rfc). Make sure you have a working install of node-rfc before continuing.
+This package is a wrapper for [node-rfc](https://github.com/SAP/node-rfc), which relies on the [SAP NW RFC SDK](http://sap.github.io/node-rfc/install.html). Make sure you have a working install of node-rfc before continuing.
 
 ## Okay, I have a working node-rfc install
 Run the following command after you have done a global install of Node-RED & node-rfc
