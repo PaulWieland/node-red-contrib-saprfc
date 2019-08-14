@@ -35,13 +35,12 @@ After adding the first node, you have to configure the connection to your SAP sy
 This node sets up a node-rfc connection pool and an async queue which limits the amount of simultaneous connections to 4. In testing, there does not seem to be a performance gain for using more than 4 connections. The queue is processed first in first out.
 
 
-##Field List
+## Field List
 The __field list__ node is the easiest to use. It is a wrapper around _RFC\_READ\_TABLE_ - you only need to enter the table name for which you would like to get the list of fields and wire it to a debug node to inspect the output.
 
 Use the condense flag to convert the standard output from the RFC to a simple object where each property is the technical name of the table and it's value is the display name.
 
-
-##Read Table
+## Read Table
 The __read table__ node is a wrapper around _RFC\_READ\_TABLE_. It converts the result into a native Array of JS Objects, each representing one result row.
 
 To use the node, you have to use a _function_ node pass a structure with the import parameters.
@@ -59,8 +58,7 @@ msg.payload = {
 return msg;
 ```
 
-
-##Call
+## Call
 
 The __call__ node allows you to call any SAP RFC you would like. Just like the __read table__ node, you must use a _function_ node to build and pass the import parameters.
 
@@ -78,7 +76,6 @@ msg.payload = {
 }
 return msg;
 ```
-
 
 ## Catching Errors
 If an error is encountered by any RFC, an error is throw. In order to see the full content of this error, drag a _catch_ node into your flow and attach it to a debug node. The debug node must be configured to output __msg.sapError__.
