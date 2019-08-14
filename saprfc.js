@@ -7,23 +7,21 @@ module.exports = function(RED) {
     function sapRFCNode(config) {
         RED.nodes.createNode(this,config);
 		
-		this.makePool = function(){
+		this.pool = function(node){
 			var systemConfig = {
-				user: this.credentials.username,
-				passwd: this.credentials.password,
-				ashost: this.credentials.host,
-				sysnr: this.credentials.systemNumber,
-				client: this.credentials.client,
-				lang: this.credentials.lang,
+				user: node.credentials.username,
+				passwd: node.credentials.password,
+				ashost: node.credentials.host,
+				sysnr: node.credentials.systemNumber,
+				client: node.credentials.client,
+				lang: node.credentials.lang,
 			}
 					
 			// create the saprouter property only if its defined in the config
-			this.credentials.sapRouter ? systemConfig.saprouter = this.credentials.sapRouter : null;
+			node.credentials.sapRouter ? systemConfig.saprouter = node.credentials.sapRouter : null;
 
 			return new rfcPool(systemConfig);
-		}
-
-		this.pool = this.makePool();
+		}(this);
 
 		// Build an async queue processor to limit the number of nodes submitting parallel requests to the pool
 		// ToDo: Check to see if the performance improves when using more than 4 connections. If yes, make queue limit a configurable option.
