@@ -1,11 +1,89 @@
 module.exports = function(RED) {
 	"use strict";
-	var rfcClient = require('node-rfc').Client;
-	
+
+	var rfcPool = require('node-rfc').Pool;
+	var async = require("async");
 
     function sapRFCNode(config) {
         RED.nodes.createNode(this,config);
+		
+		this.makePool = function(){
+			var systemConfig = {
+				user: this.credentials.username,
+				passwd: this.credentials.password,
+				ashost: this.credentials.host,
+				sysnr: this.credentials.systemNumber,
+				client: this.credentials.client,
+				lang: this.credentials.lang,
+			}
+					
+			// create the saprouter property only if its defined in the config
+			this.credentials.sapRouter ? systemConfig.saprouter = this.credentials.sapRouter : null;
+
+			return new rfcPool(systemConfig);
+		}
+
+		this.pool = this.makePool();
+
+		// Build an async queue processor to limit the number of nodes submitting parallel requests to the pool
+		// ToDo: Check to see if the performance improves when using more than 4 connections. If yes, make queue limit a configurable option.
+		this.queue = async.queue(function(task,callback){
+			task.node.status({fill:"yellow", shape:"dot", text:"Connecting"});
+			
+			task.pool.acquire()
+			.then(client => {
+				task.node.status(task.status_start);
+				
+				client
+					.call(task.rfc_name, task.rfc_structure)
+					.then(res => {
+						// release the connection
+						task.pool.release(client);
+						
+						// update the node status
+						task.node.status(task.status_success);
+
+						// process the result
+						task.msg.payload = task.postProcessor(res);
+
+						// send message to next node in flow
+						task.node.send(task.msg);
+						
+						// advance the queue
+						callback();
+					})
+					.catch(err => {
+						task.pool.release(client);
+						callback();
+						
+						task.node.status(task.status_error);
+
+						task.msg.sapError = err;
+						task.node.error("[saprfc] " + task.msg.key + "; use `catch` node to debug msg.sapError", task.msg);
+					});
+			})
+			.catch(err => {
+				callback();
+				
+				task.node.status({fill:"red",shape:"dot",text:"Connection Error"});
+
+				task.msg.sapError = err;
+				task.node.error("[saprfc] " + task.msg.key + "; use `catch` node to debug msg.sapError", task.msg);
+			})
+		}, 4);
+		
+		// Async Queue error handler
+		this.queue.error(function(err, task) {
+			task.node.status({fill:"red",shape:"dot",text:"Queue Error"});
+
+			task.msg.sapError = err;
+			task.node.error("[saprfc] " + task.msg.key + "; use `catch` node to debug msg.sapError", task.msg);
+			
+		    console.error('Task experienced an error', err);
+		});
+
 	}
+	
 	RED.nodes.registerType("saprfc-config", sapRFCNode,{
 		credentials: {
 			nickname: {type: "text"},
@@ -26,55 +104,19 @@ module.exports = function(RED) {
 								
         var node = this;
         node.on('input', function(msg) {
-			
-			var systemConfig = {
-				user: this.systemConfig.credentials.username,
-				passwd: this.systemConfig.credentials.password,
-				ashost: this.systemConfig.credentials.host,
-				sysnr: this.systemConfig.credentials.systemNumber,
-				client: this.systemConfig.credentials.client,
-				lang: this.systemConfig.credentials.lang,
-				// saprouter: this.systemConfig.credentials.sapRouter ; even if undefined, the node-rfc client tries to use it and fails. The property must be unset if no router is needed.
-			}
-			
-			// create the saprouter property only if its defined in the config
-			this.systemConfig.credentials.sapRouter ? systemConfig.saprouter = this.systemConfig.credentials.sapRouter : "";
-				
-			
-			var client = new rfcClient(systemConfig);
-
-			node.status({fill:"yellow",shape:"ring", text:"Opening"});
-			
-			client.open().then(() => {
-				node.status({fill:"green", shape:"dot", text:"Calling "+config.remoteFunction});
-				
-				client.call(
-					config.remoteFunction,
-					msg.payload
-				).then((res) => {
-					client.close();
-					
-					node.status({});
-					
-					msg.payload = res;
-					node.send(msg);
-				}).catch((err) => {
-					client.close();
-					
-					node.status({fill:"red",shape:"dot",text:"Error"});
-					
-					msg.sapError = err;
-					node.error("[saprfc:client.call] " + msg.key + "; use `catch` node to debug msg.sapError", msg);
-					
-				});
-			}).catch((err) => {
-				client.close();
-				
-				node.status({fill:"red",shape:"dot",text:"Connection Error"});
-				msg.sapError = err;
-				node.error("[saprfc:client.open] use `catch` node to debug msg.sapError", msg);
+			this.systemConfig.queue.push({
+				pool: this.systemConfig.pool,
+				node: node,
+				msg: msg,
+				status_start: {fill:"green", shape:"dot", text:"Calling "+config.remoteFunction},
+				status_success: {},
+				status_error: {fill:"red",shape:"dot",text:"Error"},
+				rfc_name: config.remoteFunction,
+				rfc_structure: msg.payload,
+				postProcessor: function(res){
+					return res;
+				}
 			});
-			
         });
     }
 	
@@ -85,37 +127,20 @@ module.exports = function(RED) {
 		this.systemConfig = RED.nodes.getNode(config.system);
 								
         var node = this;
+		
         node.on('input', function(msg) {
-			
-			var systemConfig = {
-				user: this.systemConfig.credentials.username,
-				passwd: this.systemConfig.credentials.password,
-				ashost: this.systemConfig.credentials.host,
-				sysnr: this.systemConfig.credentials.systemNumber,
-				client: this.systemConfig.credentials.client,
-				lang: this.systemConfig.credentials.lang,
-			}
-						
-			// create the saprouter property only if its defined in the config
-			this.systemConfig.credentials.sapRouter ? systemConfig.saprouter = this.systemConfig.credentials.sapRouter : "";
-				
-			var client = new rfcClient(systemConfig);
-
-			node.status({fill:"yellow",shape:"ring", text:"Opening"});
-			
-			client.open().then(() => {
-				node.status({fill:"green", shape:"dot", text:"Calling RFC_READ_TABLE"});
-				
-				client.call(
-					"RFC_READ_TABLE",
-					msg.payload
-				).then((res) => {
-					client.close();
+			this.systemConfig.queue.push({
+				pool: this.systemConfig.pool,
+				node: node,
+				msg: msg,
+				status_start: {fill:"green", shape:"dot", text:"Calling RFC_READ_TABLE"},
+				status_success: {},
+				status_error: {fill:"red",shape:"dot",text:"Error"},
+				rfc_name: "RFC_READ_TABLE",
+				rfc_structure: msg.payload,
+				postProcessor: function(res){
+					var payload = [];
 					
-					node.status({});
-					
-					msg.payload = [];
-
 					res.DATA.forEach((row) => {
 						var out = {};
 
@@ -123,30 +148,14 @@ module.exports = function(RED) {
 							out[col.FIELDNAME] = row.WA.substr(col.OFFSET, col.LENGTH).trim();
 						});
 
-						msg.payload.push(out);
+						payload.push(out);
 					});
-
-					node.send(msg);
-				}).catch((err) => {
-					client.close();
 					
-					console.error("[saprfc:sapRFCReadTable -> client.call] ",err);
-					
-					node.status({fill:"red",shape:"dot",text:"Error"});
-					
-					msg.sapError = err;
-					node.error("[saprfc:client.call] " + msg.key + "; use `catch` node to debug msg.sapError", msg);
-					
-				});
-			}).catch((err) => {
-				client.close();
-				
-				node.status({fill:"red",shape:"dot",text:"Connection Error"});
-				msg.sapError = err;
-				node.error("[saprfc:client.open] use `catch` node to debug msg.sapError", msg);
+					return payload;
+				}
 			});
-
         });
+		
     }
 	
     RED.nodes.registerType("read table",sapRFCReadTable);
@@ -156,70 +165,38 @@ module.exports = function(RED) {
 		this.systemConfig = RED.nodes.getNode(config.system);
 								
         var node = this;
+				
         node.on('input', function(msg) {
-			
-			var systemConfig = {
-				user: this.systemConfig.credentials.username,
-				passwd: this.systemConfig.credentials.password,
-				ashost: this.systemConfig.credentials.host,
-				sysnr: this.systemConfig.credentials.systemNumber,
-				client: this.systemConfig.credentials.client,
-				lang: this.systemConfig.credentials.lang,
-			}
-			
-			// create the saprouter property only if its defined in the config
-			this.systemConfig.credentials.sapRouter ? systemConfig.saprouter = this.systemConfig.credentials.sapRouter : "";
-				
-			var client = new rfcClient(systemConfig);
-
-			node.status({fill:"yellow",shape:"ring", text:"Opening"});
-			
-			client.open().then(() => {
-				node.status({fill:"green", shape:"dot", text:"Reading table"});
-				
-				client.call(
-					"RFC_READ_TABLE",
-					{
-						QUERY_TABLE: config.table,
-						NO_DATA: "X"
-					}
-				).then((res) => {
-					client.close();
-					
-					node.status({});
-					
+			this.systemConfig.queue.push({
+				pool: this.systemConfig.pool,
+				node: node,
+				msg: msg,
+				status_start: {fill:"green", shape:"dot", text:"Reading table"},
+				status_success: {},
+				status_error: {fill:"red",shape:"dot",text:"Error"},
+				rfc_name: "RFC_READ_TABLE",
+				rfc_structure: {
+					QUERY_TABLE: config.table,
+					NO_DATA: "X"
+				},
+				postProcessor: function(res){
 					if(config.condense){
-						msg.payload = {};
+						var payload = {};
 						
 						res.FIELDS.forEach((field) => {
-							msg.payload[field.FIELDNAME] = field.FIELDTEXT;
+							payload[field.FIELDNAME] = field.FIELDTEXT;
 						})
 					}else{
-						msg.payload = res.FIELDS;
+						var payload = res.FIELDS;
 					}
-
-					node.send(msg);
-				}).catch((err) => {
-					client.close();
 					
-					node.status({fill:"red",shape:"dot",text:"Error"});
-					
-					msg.sapError = err;
-					node.error("[saprfc:client.call] " + msg.key + "; use `catch` node to debug msg.sapError", msg);
-				});
-			}).catch((err) => {
-				client.close();
-				
-				node.status({fill:"red",shape:"dot",text:"Connection Error"});
-				msg.sapError = err;
-				node.error("[saprfc:client.open] use `catch` node to debug msg.sapError", msg);
+					return payload;
+				}
 			});
-						
         });
     }
 	
     RED.nodes.registerType("field list",sapRFCDescribeTable);
-
 
 }
 
