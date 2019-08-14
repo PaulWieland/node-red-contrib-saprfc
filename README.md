@@ -80,7 +80,7 @@ return msg;
 ## Catching Errors
 If an error is encountered by any RFC, an error is throw. In order to see the full content of this error, drag a _catch_ node into your flow and attach it to a debug node. The debug node must be configured to output __msg.sapError__.
 
-![image](https://user-images.githubusercontent.com/4663918/63024155-a2e65a80-be74-11e9-986e-450d47e9c413.png)
+![image](https://user-images.githubusercontent.com/4663918/63024463-3fa8f800-be75-11e9-80aa-91a753e78227.png)
 
 
 # Disclaimer
