@@ -40,6 +40,7 @@ The __field list__ node is the easiest to use. It is a wrapper around _RFC\_READ
 
 Use the condense flag to convert the standard output from the RFC to a simple object where each property is the technical name of the table and it's value is the display name.
 
+
 ##Read Table
 The __read table__ node is a wrapper around _RFC\_READ\_TABLE_. It converts the result into a native Array of JS Objects, each representing one result row.
 
@@ -57,6 +58,7 @@ msg.payload = {
 }
 return msg;
 ```
+
 
 ##Call
 
@@ -76,6 +78,7 @@ msg.payload = {
 }
 return msg;
 ```
+
 
 ## Catching Errors
 If an error is encountered by any RFC, an error is throw. In order to see the full content of this error, drag a _catch_ node into your flow and attach it to a debug node. The debug node must be configured to output __msg.sapError__.
