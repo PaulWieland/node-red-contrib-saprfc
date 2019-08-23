@@ -43,20 +43,30 @@ Use the condense flag to convert the standard output from the RFC to a simple ob
 ## Read Table
 The __read table__ node is a wrapper around _RFC\_READ\_TABLE_. It converts the result into a native Array of JS Objects, each representing one result row.
 
-To use the node, you have to use a _function_ node pass a structure with the import parameters.
+To use the node, enter the table name and click the _Fetch Fields_ button to get all the fields of the table. Then select the fields you wish to include in the output. You will also want to use a _function_ node pass a structure with additional parameters, such as ROWCOUNT, OPTIONS, etc.
 Here is an example function node which builds the import structure:
 
 ```javascript
 var date = new Date();
 
 msg.payload = {
-  QUERY_TABLE: "MARA",
-  FIELDS: ["MATNR","ERSDA","ERNAM"],
   OPTIONS: ["ERSDA >= '"+date.getFullYear()+""+("0" + (date.getMonth() - 2)).slice(-2)+""+("0" + date.getDate()).slice(-2)+"'"],
   ROWCOUNT: 10
 }
 return msg;
 ```
+
+You could also specify the table and field list in the input payload instead of configuring them in the GUI:
+
+```javascript
+msg.payload = {
+  QUERY_TABLE: "MARA",
+  FIELDS: ["MATNR","ERSDA","ERNAM"],
+  OPTIONS: ["ERSDA >= '"+date.getFullYear()+""+("0" + (date.getMonth() - 2)).slice(-2)+""+("0" + date.getDate()).slice(-2)+"'"],
+  ROWCOUNT: 10
+}
+```
+
 
 ## Call
 
