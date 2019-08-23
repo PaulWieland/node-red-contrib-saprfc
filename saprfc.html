@@ -58,13 +58,6 @@
         category: 'config',
         defaults: {
 			nickname: {value:"Prod",required:true},
-			//             host: {value:"",required:true},
-			//             client: {value:"100",required:true},
-			//             systemNumber: {value:"",required:false},
-			// sapRouter: {value:"",required:false},
-			//             username: {value:,required:true},
-			//             password: {value:100,required:true},
-			//             lang: {value:100,required:true}
         },
 		credentials: {
 			nickname: {type: "text"},
@@ -80,7 +73,7 @@
             return this.nickname;
         },
         oneditprepare: function() {
-			console.log("on edit prepare", this)
+
 		},
 		exportable: false
     });
@@ -153,24 +146,80 @@
         <label for="node-input-name"><i class="icon-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
     </div>
-	
     <div class="form-row">
         <label for="node-input-system"><i class="icon-tag"></i> System</label>
         <input type="text" id="node-input-system">
     </div>
 	
+    <div class="form-row">
+        <label for="node-input-table"><i class="icon-tag"></i>Table</label>
+		<div style="display: inline-block; position: relative; width: 70%; height: 20px;">
+			<div style="position: absolute; left: 0px; right: 70px">
+				<input type="text" id="node-input-table" placeholder="MARA">
+			</div>
+			<a class="btn" id="node-input-table-fetch-fields" style="position: absolute; right: 0px; top: 0px;">Fetch Fields</a>
+		</div>
+    </div>
+	
+    <div class="form-row node-input-target-row">
+        <div id="node-input-status-target-container-div" style="min-height: 100px; position: relative; box-sizing: border-box; border-radius: 2px; height: 180px;  border: 1px solid #ccc;overflow:hidden; ">
+            <div style="box-sizing: border-box; line-height: 20px; font-size: 0.8em; border-bottom: 1px solid #ddd; height: 20px;">
+			  <input type="checkbox" title="select all" id="node-input-target-field-checkbox-all" style="width: 30px; margin: 0 2px 1px 2px;">
+
+              <div style="display: inline-block;"><a id="node-input-target-sort-label" href="#" title="sort"><span>field</span> <i class="node-input-status-sort-label-a fa fa-caret-down"></i><i class="node-input-status-sort-label-d fa fa-caret-up"></i></a></div>
+              <div style="position: absolute; right: 10px; width: 50px; display: inline-block; text-align: right;"><a id="node-input-target-sort-id" href="#" title="sort"><span title="id">id</span><i class="node-input-status-sort-id-a fa fa-caret-down"></i><i class="node-input-status-sort-id-d fa fa-caret-up"></i></a></div>
+            </div>
+            <div style="background: #fbfbfb; box-sizing: border-box; position:absolute; top:20px;bottom:0;left:0px;right:0px; overflow-y: scroll; overflow-x: hidden;">
+                <ul id="node-input-status-target-container" style=" list-style-type:none; margin: 0;"></ul>
+            </div>
+        </div>
+    </div>	
+	
     <div class="form-tips">
-	<p>The input payload will be passed to RFC_READ_TABLE - use a function node to build an object that looks like this:
-	<pre>{
-  QUERY_TABLE: "MARA",
-  FIELDS: ["MATNR","ERSDA","ERNAM"],
+	<p>You can use a function node to pass parameters to RFC_READ_TABLE. Sample payload:
+	<pre>msg.payload = {
   OPTIONS: ["MATNR EQ 'SOME_MATERIAL_NUMBER'"],
   ROWCOUNT: 10
 }</pre>
 	</p>
+	<p>Valid payload properties are: <em>TABLE, FIELDS, OPTIONS, ROWCOUNT, ROWSKIP</em>. TABLE & FIELDS be set in the node's configuration instead of the payload.</p>
 	<p>The output payload contains the parsed data returned by RFC_READ_TABLE.</p>
 	<p>Use a <strong>Catch</strong> node to catch and process any errors encountered by the RFC.</p>		
     </div>
+	
+	<style>
+	#node-input-status-target-container {
+	    position: relative;
+	}
+	#node-input-status-target-container li {
+	    padding: 2px 5px;
+	    background: none;
+	    font-size: 0.8em;
+	    margin:0;
+	    white-space: nowrap;
+	}
+	#node-input-status-target-container li label {
+	    margin-bottom: 0;
+	    width: 100%;
+	}
+	#node-input-status-target-container li label input {
+	    vertical-align: top;
+	    width:15px;
+	    margin-right: 10px;
+	}
+	#node-input-status-target-container li:hover,
+	#node-input-status-target-container li:hover .node-input-target-field-label {
+	    background: #f0f0f0;
+	}
+	.node-input-target-field-id {
+	    position:absolute;
+	    right: 0px;
+	    padding-right: 10px;
+	    padding-left: 10px;
+	    font-size: 0.8em;
+	    background: #fbfbfb;
+	}
+	</style>
 	
 		
 </script>
@@ -186,14 +235,169 @@
         defaults: {
             name: {value:"read table"},
 			system: {type:"saprfc-config", required: true},
-			remoteFunction: {value:""}
+            table: {value:"", required: true},
+			rowcount: {value:null},
+			selectedFields: {value:null}
         },
         inputs:1,
         outputs:1,
         icon: "file.png",
         label: function() {
-            return this.name||"read table";
-        }
+            return this.name||"read "+this.table;
+        },
+
+        oneditprepare: function() {
+            var node = this;
+			var nodeId = this.id;
+            var nodeList = $("#node-input-status-target-container");
+						
+            function createFieldList() {
+				var selectedFields = node.selectedFields || [];
+				
+                nodeList.empty();
+				
+				var data = {
+					nodeId: nodeId,
+					table: $("#node-input-table").val(),
+					systemConfig: $("#node-input-system").val()
+				}
+			
+				// Load the field list for the specified table from the server
+				$.ajax({
+					method: "post",
+					dataType: "json",
+					url: 'saprfc_table_fields',
+					data: data,
+					success: function(data){
+						// console.log("Success:",data);
+
+						$("#node-input-table").removeClass("input-error");
+
+						if(data.error){
+							$("#node-input-table").addClass("input-error");
+							return;
+						}
+
+						
+						data.fieldList.forEach((field) => {
+							var isChecked = selectedFields.indexOf(field.id) !== -1;
+							
+							var container = $('<li/>',{class:"node-input-target-field"});
+							var row = $('<label/>',{for:"node-input-target-field-"+field.id}).appendTo(container);
+		                    $('<input>',{type:"checkbox",class:"node-input-target-field-checkbox",id:"node-input-target-field-"+field.id})
+		                        .data('field-id',field.id)
+		                        .prop('checked', isChecked)
+		                        .appendTo(row);
+		                    container.on('mouseover',function(e) {
+		                        field.highlighted = true;
+		                    });
+		                    container.on('mouseout',function(e) {
+		                        field.highlighted = false;
+		                    });
+
+		                    $('<span>',{class:"node-input-target-field-label",style:"white-space:nowrap"}).text(field.label).appendTo(row);
+							$('<span>',{class:"node-input-target-field-id"}).text(field.id).appendTo(row);
+
+		                    container.appendTo(nodeList);
+						});
+						
+		                $(".node-input-target-field-checkbox").change(function() {
+		                    if (!this.checked) {
+		                        $("#node-input-target-field-checkbox-all").prop('checked',false);
+		                    }
+		                });
+						
+						
+					},
+					error: function(err){
+						console.log("Error: ",err);
+					}
+				}); // ajax
+			} // createFieldList
+			
+            function sortNodeList(sortOn) {
+                var currentSort = nodeList.data('currentSort');
+                var currentSortOrder = nodeList.data('currentSortOrder');
+
+                if (!currentSort) {
+                    currentSort = sortOn;
+                    currentSortOrder = 'a';
+                } else {
+                    if (currentSort === sortOn) {
+                        currentSortOrder = (currentSortOrder === 'a'?'d':'a');
+                    } else {
+                        currentSortOrder = 'a';
+                    }
+                    currentSort = sortOn;
+                }
+								
+                nodeList.data('currentSort',currentSort);
+                nodeList.data('currentSortOrder',currentSortOrder);
+
+                $("#node-input-status-target-container-div .fa").hide();
+                $(".node-input-status-sort-"+currentSort+"-"+currentSortOrder).show();
+
+                var items = nodeList.find("li").get();
+								
+                items.sort(function(a,b) {
+                    var labelA = $(a).find(".node-input-target-field-"+currentSort).text().toLowerCase();
+                    var labelB = $(b).find(".node-input-target-field-"+currentSort).text().toLowerCase();
+										
+                    if (labelA < labelB) { return currentSortOrder==='a'?-1:1; }
+                    if (labelA > labelB) { return currentSortOrder==='a'?1:-1; }
+                    return 0;
+                });
+                $.each(items, function(i, li) {
+                    nodeList.append(li);
+                });
+            }// sortNodeList
+			
+            $("#node-input-target-sort-id").click(function(e) {
+                e.preventDefault();
+                sortNodeList('id');
+            });
+
+            $("#node-input-target-sort-label").click(function(e) {
+                e.preventDefault();
+                sortNodeList('label');
+            });
+			
+			// pre populate the field list if the table name already is set
+			if(node.table){
+				createFieldList();
+			}
+
+			$('#node-input-table-fetch-fields').click(function(e) {
+				createFieldList();
+				e.preventDefault();
+			});
+			
+			$('#node-input-table').keypress(function (e) {
+			  if (e.which == 13) {
+				  createFieldList();
+
+				  return false;
+			  }
+			  e.preventDefault();
+			});
+			
+            $("#node-input-target-field-checkbox-all").change(function() {
+                $(".node-input-target-field-checkbox").prop('checked',this.checked);
+            });
+			
+		}, // oneditprepare
+		
+        oneditsave: function() {
+            var node = this;
+            node.selectedFields = [];
+            $(".node-input-target-field-checkbox").each(function(n) {
+                if ($(this).prop("checked")) {
+                    node.selectedFields.push($(this).data('field-id'));
+                }
+            });
+        }, // oneditsave
+		
+		
     });
 </script>
 	
