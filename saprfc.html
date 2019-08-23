@@ -236,7 +236,6 @@
             name: {value:"read table"},
 			system: {type:"saprfc-config", required: true},
             table: {value:"", required: true},
-			rowcount: {value:null},
 			selectedFields: {value:null}
         },
         inputs:1,
@@ -378,7 +377,6 @@
 
 				  return false;
 			  }
-			  e.preventDefault();
 			});
 			
             $("#node-input-target-field-checkbox-all").change(function() {
