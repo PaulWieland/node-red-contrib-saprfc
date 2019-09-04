@@ -381,7 +381,7 @@
             });
 			
 			// pre populate the field list if the table name already is set
-			if(node.systemConfig && node.table){
+			if($("#node-input-system").val() !== "_ADD_" && node.table){
 				createFieldList();
 			}
 
