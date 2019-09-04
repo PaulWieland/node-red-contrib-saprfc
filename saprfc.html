@@ -133,7 +133,7 @@
         },
         inputs:1,
         outputs:1,
-        icon: "file.png",
+        icon: "function.png",
         label: function() {
             return this.name||this.remoteFunction||"call";
         }
@@ -142,6 +142,9 @@
 	
 
 <script type="text/x-red" data-template-name="read table">
+	<div class="form-row">
+		<div id="node-message"></div>
+	</div>
     <div class="form-row">
         <label for="node-input-name"><i class="icon-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
@@ -240,7 +243,7 @@
         },
         inputs:1,
         outputs:1,
-        icon: "file.png",
+		icon: "db.png",
         label: function() {
             return this.name||"read "+this.table;
         },
@@ -248,17 +251,24 @@
         oneditprepare: function() {
             var node = this;
 			var nodeId = this.id;
-            var nodeList = $("#node-input-status-target-container");
+            var fieldListContainer = $("#node-input-status-target-container");
 						
             function createFieldList() {
 				var selectedFields = node.selectedFields || [];
 				
-                nodeList.empty();
+                fieldListContainer.empty();
+				$("#node-message").html("");
 				
 				var data = {
 					nodeId: nodeId,
 					table: $("#node-input-table").val(),
 					systemConfig: $("#node-input-system").val()
+				}
+				
+				if($("#node-input-system").val() === "_ADD_"){
+					$("#node-message").html("<span style=\"color: red\">Please select a system</span>");
+
+					return;
 				}
 			
 				// Load the field list for the specified table from the server
@@ -268,11 +278,16 @@
 					url: 'saprfc_table_fields',
 					data: data,
 					success: function(data){
-						// console.log("Success:",data);
-
 						$("#node-input-table").removeClass("input-error");
 
 						if(data.error){
+							$("#node-message").html("<span style=\"color: red\">"+data.message+"</span>");
+							// This is not conventional, but we need a way to output the sapError object to the debug window in case the RFC fails
+							// node.error() is not in context here
+							RED.debug.handleDebugMessage({name:"error: read table",msg:data.sapError, level: 20});
+							
+							// console.log(data.sapError);
+
 							$("#node-input-table").addClass("input-error");
 							return;
 						}
@@ -297,7 +312,7 @@
 		                    $('<span>',{class:"node-input-target-field-label",style:"white-space:nowrap"}).text(field.label).appendTo(row);
 							$('<span>',{class:"node-input-target-field-id"}).text(field.id).appendTo(row);
 
-		                    container.appendTo(nodeList);
+		                    container.appendTo(fieldListContainer);
 						});
 						
 		                $(".node-input-target-field-checkbox").change(function() {
@@ -309,14 +324,18 @@
 						
 					},
 					error: function(err){
-						console.log("Error: ",err);
+						// This is not conventional, but we need a way to output the sapError object to the debug window in case the ajax call fails
+						// node.error() is not in context here
+						RED.debug.handleDebugMessage({name:"error: read table",msg:err, level: 20});
+						
+						// console.log("Error: ",err);
 					}
 				}); // ajax
 			} // createFieldList
 			
-            function sortNodeList(sortOn) {
-                var currentSort = nodeList.data('currentSort');
-                var currentSortOrder = nodeList.data('currentSortOrder');
+            function sortfieldListContainer(sortOn) {
+                var currentSort = fieldListContainer.data('currentSort');
+                var currentSortOrder = fieldListContainer.data('currentSortOrder');
 
                 if (!currentSort) {
                     currentSort = sortOn;
@@ -330,13 +349,13 @@
                     currentSort = sortOn;
                 }
 								
-                nodeList.data('currentSort',currentSort);
-                nodeList.data('currentSortOrder',currentSortOrder);
+                fieldListContainer.data('currentSort',currentSort);
+                fieldListContainer.data('currentSortOrder',currentSortOrder);
 
                 $("#node-input-status-target-container-div .fa").hide();
                 $(".node-input-status-sort-"+currentSort+"-"+currentSortOrder).show();
 
-                var items = nodeList.find("li").get();
+                var items = fieldListContainer.find("li").get();
 								
                 items.sort(function(a,b) {
                     var labelA = $(a).find(".node-input-target-field-"+currentSort).text().toLowerCase();
@@ -347,22 +366,22 @@
                     return 0;
                 });
                 $.each(items, function(i, li) {
-                    nodeList.append(li);
+                    fieldListContainer.append(li);
                 });
-            }// sortNodeList
+            }// sortfieldListContainer
 			
             $("#node-input-target-sort-id").click(function(e) {
                 e.preventDefault();
-                sortNodeList('id');
+                sortfieldListContainer('id');
             });
 
             $("#node-input-target-sort-label").click(function(e) {
                 e.preventDefault();
-                sortNodeList('label');
+                sortfieldListContainer('label');
             });
 			
 			// pre populate the field list if the table name already is set
-			if(node.table){
+			if(node.systemConfig && node.table){
 				createFieldList();
 			}
 

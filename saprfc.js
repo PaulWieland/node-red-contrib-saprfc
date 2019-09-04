@@ -68,16 +68,17 @@ module.exports = function(RED) {
 						task.node.status(task.status_error);
 
 						task.msg.sapError = err;
-						task.node.error("[saprfc] " + task.msg.key + "; use `catch` node to debug msg.sapError", task.msg);
+						task.node.error(task.msg, task.msg);
 					});
 			})
 			.catch(err => {
 				callback();
-				
+				// console.error("[sapRFC] ", err);
+
 				task.node.status({fill:"red",shape:"dot",text:"Connection Error"});
 
 				task.msg.sapError = err;
-				task.node.error("[saprfc] " + task.msg.key + "; use `catch` node to debug msg.sapError", task.msg);
+				task.node.error(task.msg, task.msg);
 			})
 		}, 4);
 		
@@ -86,9 +87,9 @@ module.exports = function(RED) {
 			task.node.status({fill:"red",shape:"dot",text:"Queue Error"});
 
 			task.msg.sapError = err;
-			task.node.error("[saprfc] " + task.msg.key + "; use `catch` node to debug msg.sapError", task.msg);
+			task.node.error(task.msg, task.msg);
 			
-		    console.error('Task experienced an error', err);
+		    // console.error('[sapRFC] Task experienced an error', err);
 		});
 
 	}
@@ -178,10 +179,10 @@ module.exports = function(RED) {
     }
 	
     RED.nodes.registerType("read table",sapRFCReadTable, {
-    	settings: {
-    		table: { exportable: true },
-			selectedFields: { exportable: true }
-    	}
+    	// settings: {
+    		// table: { exportable: true },
+			// selectedFields: { exportable: true }
+    	// }
     });
 
 	function sapRFCDescribeTable(config){
@@ -223,22 +224,28 @@ module.exports = function(RED) {
     RED.nodes.registerType("field list",sapRFCDescribeTable);
 	
 	RED.httpAdmin.post("/saprfc_table_fields", RED.auth.needsPermission('saprfc.read'), function(req,res){
-		let node = RED.nodes.getNode(req.body.nodeId);
+		let systemConfig = RED.nodes.getNode(req.body.systemConfig);
 		let table = req.body.table;
-		let pool = node.systemConfig.pool;
+		
+		if(systemConfig === null){
+			// console.error("[sapRFC] systemConfig not set");
+			res.json({
+				error: true,
+				message: "System is not set",
+				sapError: {}
+			});
+			return;
+		}
+		
+		let pool = systemConfig.pool;
 		
 		pool.acquire()
-		.then(client => {
-			node.status({fill:"green", shape:"dot", text:"Requesting table fields"});
-			
+		.then(client => {			
 			client
 				.call("RFC_READ_TABLE", {QUERY_TABLE: table,NO_DATA: "X"})
 				.then(table => {
 					// release the connection
 					pool.release(client);
-					
-					// update the node status
-					node.status({});
 
 					// process the result
 					let fieldList = [];
@@ -253,24 +260,23 @@ module.exports = function(RED) {
 					});
 				})
 				.catch(err => {
+					// console.error("[sapRFC] ", err);
 					res.json({
-						error: true
+						error: true,
+						message: "Could not get table fields",
+						sapError: err
 					});
 					
 					pool.release(client);
-					
-					node.status({fill:"red", shape:"dot", text: "Error getting table fields"});
-
-					node.error("[saprfc]; use `catch` node to debug msg.sapError", err);
 				});
 		})
 		.catch(err => {
-			callback();
-			
-			task.node.status({fill:"red",shape:"dot",text:"Connection Error"});
-
-			task.msg.sapError = err;
-			task.node.error("[saprfc] " + task.msg.key + "; use `catch` node to debug msg.sapError", task.msg);
+			// console.error("[sapRFC] ", err);
+			res.json({
+				error: true,
+				message: "Connection error",
+				sapError: err
+			});
 		})
 		
 	});
