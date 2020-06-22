@@ -6,22 +6,27 @@ module.exports = function(RED) {
 
     function sapRFCNode(config) {
         RED.nodes.createNode(this,config);
-		
-		this.pool = function(node){
-			var systemConfig = {
-				user: node.credentials.username,
-				passwd: node.credentials.password,
-				ashost: node.credentials.host,
-				sysnr: node.credentials.systemNumber,
-				client: node.credentials.client,
-				lang: node.credentials.lang,
-			}
+		var node = this;
+        
+        try{
+            this.pool = function(node){
+    			var systemConfig = {
+    				user: node.credentials.username,
+    				passwd: node.credentials.password,
+    				ashost: node.credentials.host,
+    				sysnr: node.credentials.systemNumber,
+    				client: node.credentials.client,
+    				lang: node.credentials.lang,
+    			}
 					
-			// create the saprouter property only if its defined in the config
-			node.credentials.sapRouter ? systemConfig.saprouter = node.credentials.sapRouter : null;
+    			// create the saprouter property only if its defined in the config
+    			node.credentials.sapRouter ? systemConfig.saprouter = node.credentials.sapRouter : null;
 
-			return new rfcPool(systemConfig);
-		}(this);
+    			return new rfcPool(systemConfig);
+    		}(this);
+        } catch (error) {
+            console.error("[sapRFC:pool]: ", err);
+        }
 
 		// Build an async queue processor to limit the number of nodes submitting parallel requests to the pool
 		// ToDo: Check to see if the performance improves when using more than 4 connections. If yes, make queue limit a configurable option.
@@ -41,8 +46,8 @@ module.exports = function(RED) {
 			
 			task.pool.acquire()
 			.then(client => {
-				task.node.status(task.status_start);
-								
+				task.node.status(`(${node.queue.length()}) ${task.status_start}`);
+
 				client
 					.call(task.rfc_name, task.rfc_structure)
 					.then(res => {
@@ -62,6 +67,7 @@ module.exports = function(RED) {
 						callback();
 					})
 					.catch(err => {
+                        console.error("[sapRFC:call] ", err);
 						task.pool.release(client);
 						callback();
 						
@@ -72,8 +78,8 @@ module.exports = function(RED) {
 					});
 			})
 			.catch(err => {
+                console.error("[sapRFC:pool.aquire] ", err);
 				callback();
-				// console.error("[sapRFC] ", err);
 
 				task.node.status({fill:"red",shape:"dot",text:"Connection Error"});
 
@@ -82,16 +88,6 @@ module.exports = function(RED) {
 			})
 		}, 4);
 		
-		// Async Queue error handler
-		this.queue.error(function(err, task) {
-			task.node.status({fill:"red",shape:"dot",text:"Queue Error"});
-
-			task.msg.sapError = err;
-			task.node.error(task.msg, task.msg);
-			
-		    // console.error('[sapRFC] Task experienced an error', err);
-		});
-
 	}
 	
 	RED.nodes.registerType("saprfc-config", sapRFCNode,{
@@ -109,25 +105,29 @@ module.exports = function(RED) {
 	
 
 	function sapRFCCallNode(config){
-        RED.nodes.createNode(this,config);
-		this.systemConfig = RED.nodes.getNode(config.system);
+        try{
+            RED.nodes.createNode(this,config);
+    		this.systemConfig = RED.nodes.getNode(config.system);
 								
-        var node = this;
-        node.on('input', function(msg) {
-			this.systemConfig.queue.push({
-				pool: this.systemConfig.pool,
-				node: node,
-				msg: msg,
-				status_start: {fill:"green", shape:"dot", text:"Calling "+config.remoteFunction},
-				status_success: {},
-				status_error: {fill:"red",shape:"dot",text:"Error"},
-				rfc_name: config.remoteFunction,
-				rfc_structure: msg.payload,
-				postProcessor: function(res){
-					return res;
-				}
-			});
-        });
+            var node = this;
+            node.on('input', function(msg) {
+    			this.systemConfig.queue.push({
+    				pool: this.systemConfig.pool,
+    				node: node,
+    				msg: msg,
+    				status_start: {fill:"green", shape:"dot", text:`Calling ${config.remoteFunction}`},
+    				status_success: {},
+    				status_error: {fill:"red",shape:"dot",text:"Error"},
+    				rfc_name: config.remoteFunction,
+    				rfc_structure: msg.payload,
+    				postProcessor: function(res){
+    					return res;
+    				}
+    			});
+            });
+        } catch (error) {
+            console.error("[sapRFC:sapRFCCallNode] ",err);
+        }
     }
 	
     RED.nodes.registerType("call",sapRFCCallNode);
@@ -137,7 +137,7 @@ module.exports = function(RED) {
 		this.systemConfig = RED.nodes.getNode(config.system);
 		
         let node = this;
-				
+		
         node.on('input', function(msg) {
 			let rfcStructure = {
 				QUERY_TABLE: config.table || msg.payload.QUERY_TABLE,
@@ -260,7 +260,7 @@ module.exports = function(RED) {
 					});
 				})
 				.catch(err => {
-					// console.error("[sapRFC] ", err);
+                    console.error("[sapRFC:admin.call] ", err);
 					res.json({
 						error: true,
 						message: "Could not get table fields",
@@ -271,7 +271,7 @@ module.exports = function(RED) {
 				});
 		})
 		.catch(err => {
-			// console.error("[sapRFC] ", err);
+            console.error("[sapRFC:admin.pool.acquire] ", err);
 			res.json({
 				error: true,
 				message: "Connection error",
