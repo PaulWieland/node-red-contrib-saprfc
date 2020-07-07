@@ -46,6 +46,10 @@ module.exports = function(RED) {
 			
 			task.pool.acquire()
 			.then(client => {
+                // insert the current queue length into the status start text
+                task.status_start.text = `(${node.queue.length()}) task.status_start.text`;
+                
+                // update the node's visual status
 				task.node.status(`(${node.queue.length()}) ${task.status_start}`);
 
 				client
