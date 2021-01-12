@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-saprfc",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "A node-red node wrapper for node-rfc (SAP Net Weaver Remote Function Call SDK Client).",
   "main": "index.js",
   "node-red" : {
@@ -11,9 +11,9 @@
   "credentials": {
       "username": {"type":"text"},
       "password": {"type":"password"}
-  },  
+  },
   "dependencies": {
-	  "node-rfc": "=1.2.0",
+	  "node-rfc": ">=2.3.1",
 	  "async": ">=3.0.0"
   },
   "keywords": [

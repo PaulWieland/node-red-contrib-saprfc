@@ -7,7 +7,7 @@ module.exports = function(RED) {
     function sapRFCNode(config) {
         RED.nodes.createNode(this,config);
 		var node = this;
-        
+
         try{
             this.pool = function(node){
     			var systemConfig = {
@@ -22,9 +22,9 @@ module.exports = function(RED) {
     			// create the saprouter property only if its defined in the config
     			node.credentials.sapRouter ? systemConfig.saprouter = node.credentials.sapRouter : null;
 
-    			return new rfcPool(systemConfig);
+    			return new rfcPool({ connectionParameters: systemConfig });
     		}(this);
-        } catch (error) {
+        } catch (err) {
             console.error("[sapRFC:pool]: ", err);
         }
 
@@ -129,7 +129,7 @@ module.exports = function(RED) {
     				}
     			});
             });
-        } catch (error) {
+        } catch (err) {
             console.error("[sapRFC:sapRFCCallNode] ",err);
         }
     }
