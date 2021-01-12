@@ -13,7 +13,7 @@
       "password": {"type":"password"}
   },  
   "dependencies": {
-	  "node-rfc": ">=1.2.0",
+	  "node-rfc": "=1.2.0",
 	  "async": ">=3.0.0"
   },
   "keywords": [
