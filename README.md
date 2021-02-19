@@ -87,6 +87,10 @@ msg.payload = {
 return msg;
 ```
 
+### Limitations
+
+Currently the call node does not offer a way to use `BAPI_TRANSACTION_COMMIT` or `BAPI_TRANSACTION_ROLLBACK`. Major improvements need to be made to be able to accomodate commit and rollback.
+
 ## Catching Errors
 If an error is encountered by any RFC, an error is throw. In order to see the full content of this error, drag a _catch_ node into your flow and attach it to a debug node. The debug node must be configured to output __msg.sapError__.
 
