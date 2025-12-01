@@ -177,12 +177,24 @@ module.exports = function(RED) {
 		let node = this;
 
 		node.on('input', function(msg) {
+			// Determine table name: config.table takes priority, then msg.table, then msg.payload.TABLE
+			let tableName = (typeof config.table === 'string' && config.table.length) ? config.table
+					: (typeof msg.table === 'string' && msg.table.length) ? msg.table
+					: (msg.payload && typeof msg.payload.TABLE === 'string') ? msg.payload.TABLE
+					: (msg.payload && typeof msg.payload.QUERY_TABLE === 'string') ? msg.payload.QUERY_TABLE
+					: undefined;
+
+			// Determine fields: config.selectedFields (array) takes priority, then msg.fields, then msg.payload.FIELDS
+			let fields = Array.isArray(config.selectedFields) && config.selectedFields.length ? config.selectedFields
+					: Array.isArray(msg.fields) ? msg.fields
+					: Array.isArray(msg.payload && msg.payload.FIELDS) ? msg.payload.FIELDS : [];
+
 			let rfcStructure = {
-				QUERY_TABLE: config.table || msg.payload.QUERY_TABLE,
-				FIELDS: Array.isArray(config.selectedFields) ? config.selectedFields : Array.isArray(msg.payload.FIELDS) ? msg.payload.FIELDS : [],
-				OPTIONS: Array.isArray(msg.payload.OPTIONS) ? msg.payload.OPTIONS : [],
-				ROWCOUNT: Number.isInteger(msg.payload.ROWCOUNT) ? msg.payload.ROWCOUNT : 0,
-				ROWSKIPS: Number.isInteger(msg.payload.ROWSKIPS) ? msg.payload.ROWSKIPS : 0
+				QUERY_TABLE: tableName,
+				FIELDS: fields,
+				OPTIONS: Array.isArray(msg.payload && msg.payload.OPTIONS) ? msg.payload.OPTIONS : [],
+				ROWCOUNT: Number.isInteger(msg.payload && msg.payload.ROWCOUNT) ? msg.payload.ROWCOUNT : 0,
+				ROWSKIPS: Number.isInteger(msg.payload && msg.payload.ROWSKIPS) ? msg.payload.ROWSKIPS : 0
 			}
 
 			// console.log(config, node, rfcStructure);

@@ -181,11 +181,14 @@
     <div class="form-tips">
 	<p>You can use a function node to pass parameters to RFC_READ_TABLE. Sample payload:
 	<pre>msg.payload = {
+  TABLE: "MARA",
+  FIELDS: ["MATNR", "MBRSH", "MTART", "MAKTX"],
   OPTIONS: ["MATNR EQ 'SOME_MATERIAL_NUMBER'"],
   ROWCOUNT: 10
 }</pre>
 	</p>
-	<p>Valid payload properties are: <em>TABLE, FIELDS, OPTIONS, ROWCOUNT, ROWSKIP</em>. TABLE & FIELDS be set in the node's configuration instead of the payload.</p>
+	<p>Valid payload properties are: <em>TABLE, FIELDS, OPTIONS, ROWCOUNT, ROWSKIP</em>. TABLE & FIELDS can be set in the node's configuration instead of the payload.</p>
+	<p>Optionally, you may also set <em>msg.table</em> and/or <em>msg.fields</em> if you want to seperate these values from your <em>msg.payload</em>.</p>
 	<p>The output payload contains the parsed data returned by RFC_READ_TABLE.</p>
 	<p>Use a <strong>Catch</strong> node to catch and process any errors encountered by the RFC.</p>		
     </div>
