@@ -39,18 +39,20 @@ module.exports = function(RED) {
 				text: "Connecting"
 			});
 
-			// TODO check if the client isAlive, if not re-establish the connection
-			// task.pool.acquire()
-			// .then(client => {
-			// 	if(!client.isAlive){
-			// 		let config = RED.nodes.getNode(config.system);
-			// 		config.pool(config);
-			// 	}
-			//
-			// });
-
-
 			task.pool.acquire()
+				.then(client => {
+					if (client.isAlive) {
+						return client;
+					}
+					
+					task.node.status({
+						fill: "yellow",
+						shape: "dot",
+						text: "Reconnecting"
+					});
+					
+					return client.reopen().then(() => client);
+				})
 				.then(client => {
 					// insert the current queue length into the status start text
 					task.status_start.text = `(${node.queue.length()}) ${task.status_start.text}`;
@@ -294,6 +296,12 @@ module.exports = function(RED) {
 		let pool = systemConfig.pool;
 
 		pool.acquire()
+			.then(client => {
+				if (client.isAlive) {
+					return client;
+				}
+				return client.reopen().then(() => client);
+			})
 			.then(client => {
 				client
 					.call("RFC_READ_TABLE", {
