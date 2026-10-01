@@ -1,11 +1,11 @@
 <script type="text/x-red" data-template-name="saprfc-config">
     <div class="form-row">
-        <label for="node-config-input-nickname"><i class="icon-bookmark"></i> Nickname</label>
+        <label for="node-config-input-nickname"><i class="fa fa-bookmark"></i> Nickname</label>
         <input type="text" id="node-config-input-nickname" placeholder="Prod" />
     </div>
 
     <div class="form-row">
-        <label for="node-config-input-host"><i class="icon-bookmark"></i> Host</label>
+        <label for="node-config-input-host"><i class="fa fa-bookmark"></i> Host</label>
         <input type="text" id="node-config-input-host" placeholder="sapr3.mycompany.com" />
     </div>
 
@@ -57,25 +57,23 @@
     RED.nodes.registerType('saprfc-config',{
         category: 'config',
         defaults: {
-			nickname: {value:"Prod",required:true},
+			nickname: {value:"Prod", required:true},
+			host: {value:"", required:true},
+			client: {value:"100", required:true},
+			systemNumber: {value:"", required:true},
+			sapRouter: {value:""},
+			lang: {value:"EN", required:true}
         },
 		credentials: {
-			nickname: {type: "text"},
-			host: {type: "text", required: true},
-			client: {type: "text", required: true},
-			systemNumber: {type: "text", required: true},
-			sapRouter: {type: "text"},
 			username: {type: "text", required: true},
-			password: {type: "password", required: true},
-			lang: {type: "text", required: true}
+			password: {type: "password", required: true}
 		},
         label: function() {
-            return this.nickname;
+            return this.nickname || this.host || "SAP System";
         },
         oneditprepare: function() {
 
-		},
-		exportable: false
+		}
     });
 })();
 </script>
@@ -84,17 +82,17 @@
 
 <script type="text/x-red" data-template-name="call">
     <div class="form-row">
-        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
     </div>
 	
     <div class="form-row">
-        <label for="node-input-system"><i class="icon-tag"></i> System</label>
+        <label for="node-input-system"><i class="fa fa-tag"></i> System</label>
         <input type="text" id="node-input-system">
     </div>
 	
     <div class="form-row">
-        <label for="node-input-remoteFunction"><i class="icon-tag"></i> Function To Call</label>
+        <label for="node-input-remoteFunction"><i class="fa fa-tag"></i> Function To Call</label>
         <input type="text" id="node-input-remoteFunction" placeholder="Enter RFC Name">
     </div>
 	
@@ -119,7 +117,24 @@
 </script>
 
 <script type="text/x-red" data-help-name="call">
-    <p>Make an SAP Remote Function Call</p>
+    <p>Make an SAP Remote Function Call (RFC or BAPI).</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">rfc <span class="property-type">string</span></dt>
+        <dd>The RFC function or BAPI name to call (e.g. <code>BAPI_USER_CHANGE</code>). Overrides the function configured in the node dialog.</dd>
+        <dt class="optional">payload <span class="property-type">object</span></dt>
+        <dd>The input parameters / import structure to pass to the RFC.</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The data structure returned by the SAP RFC function.</dd>
+        <dt class="optional">sapError <span class="property-type">object</span></dt>
+        <dd>Contains SAP error information if the call fails.</dd>
+    </dl>
+    <h3>Details</h3>
+    <p>The input <code>msg.payload</code> object will be passed to the RFC. Use a <code>function</code> node or <code>change</code> node to prepare the parameters.</p>
+    <p>Use a <code>Catch</code> node to catch and process any errors encountered by the RFC.</p>
 </script>
 
 <script type="text/javascript">
@@ -129,7 +144,7 @@
         defaults: {
             name: {value:""},
 			system: {type:"saprfc-config", required: true},
-			remoteFunction: {value:"", required: true}
+			remoteFunction: {value:""}
         },
         inputs:1,
         outputs:1,
@@ -146,21 +161,19 @@
 		<div id="node-message"></div>
 	</div>
     <div class="form-row">
-        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name" placeholder="Name">
     </div>
     <div class="form-row">
-        <label for="node-input-system"><i class="icon-tag"></i> System</label>
+        <label for="node-input-system"><i class="fa fa-tag"></i> System</label>
         <input type="text" id="node-input-system">
     </div>
 	
     <div class="form-row">
-        <label for="node-input-table"><i class="icon-tag"></i>Table</label>
-		<div style="display: inline-block; position: relative; width: 70%; height: 20px;">
-			<div style="position: absolute; left: 0px; right: 70px">
-				<input type="text" id="node-input-table" placeholder="MARA">
-			</div>
-			<a class="btn" id="node-input-table-fetch-fields" style="position: absolute; right: 0px; top: 0px;">Fetch Fields</a>
+        <label for="node-input-table"><i class="fa fa-table"></i> Table</label>
+		<div style="display: inline-flex; width: 70%; gap: 6px; vertical-align: middle;">
+			<input type="text" id="node-input-table" placeholder="MARA" style="flex: 1; min-width: 0;">
+			<button type="button" class="red-ui-button editor-button" id="node-input-table-fetch-fields" style="white-space: nowrap;"><i class="fa fa-refresh"></i> Fetch Fields</button>
 		</div>
     </div>
 	
@@ -228,7 +241,32 @@
 </script>
 
 <script type="text/x-red" data-help-name="read table">
-    <p>Read data from an SAP Table</p>
+    <p>Read data from an SAP Table using <code>RFC_READ_TABLE</code>.</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">table <span class="property-type">string</span></dt>
+        <dd>The SAP table name to query (e.g. <code>MARA</code>). Overrides the table configured in the node dialog.</dd>
+        <dt class="optional">fields <span class="property-type">array | string</span></dt>
+        <dd>An array of field names (e.g. <code>["MATNR", "MTART"]</code>) or comma-separated string (e.g. <code>"MATNR, MTART"</code>) to return. Overrides selected fields in the node.</dd>
+        <dt class="optional">options <span class="property-type">array | string</span></dt>
+        <dd>WHERE conditions for the query as an array of strings or a single string (e.g. <code>["ERSDA >= '20230101'"]</code>).</dd>
+        <dt class="optional">rowcount <span class="property-type">number</span></dt>
+        <dd>Maximum number of rows to return (default: <code>0</code> for all).</dd>
+        <dt class="optional">rowskips <span class="property-type">number</span></dt>
+        <dd>Number of rows to skip / offset (default: <code>0</code>).</dd>
+        <dt class="optional">payload <span class="property-type">object</span></dt>
+        <dd>Alternatively, pass a raw SAP query object containing <code>QUERY_TABLE</code>, <code>FIELDS</code>, <code>OPTIONS</code>, <code>ROWCOUNT</code>, <code>ROWSKIPS</code>.</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">array</span></dt>
+        <dd>An array of JavaScript objects, where each object represents a table row with property keys matching field names.</dd>
+        <dt class="optional">sapError <span class="property-type">object</span></dt>
+        <dd>Contains SAP error information if the RFC fails.</dd>
+    </dl>
+    <h3>Details</h3>
+    <p>Converts the raw SAP <code>RFC_READ_TABLE</code> output into clean JavaScript objects.</p>
+    <p>Use a <code>Catch</code> node to catch and process any errors encountered by the RFC.</p>
 </script>
 
 <script type="text/javascript">
@@ -238,14 +276,14 @@
         defaults: {
             name: {value:"read table"},
 			system: {type:"saprfc-config", required: true},
-            table: {value:"", required: true},
+            table: {value:""},
 			selectedFields: {value:null}
         },
         inputs:1,
         outputs:1,
 		icon: "db.png",
         label: function() {
-            return this.name||"read "+this.table;
+            return this.name||(this.table ? "read "+this.table : "read table");
         },
 
         oneditprepare: function() {
@@ -420,23 +458,23 @@
 	
 <script type="text/x-red" data-template-name="field list">
     <div class="form-row">
-        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
         <input type="text" id="node-input-name">
     </div>
 	
     <div class="form-row">
-        <label for="node-input-table"><i class="icon-tag"></i> Table</label>
+        <label for="node-input-table"><i class="fa fa-tag"></i> Table</label>
         <input type="text" id="node-input-table" placeholder="MARA">
     </div>
 
     <div class="form-row">
-        <label for="node-input-condense"><i class="icon-tag"></i> Condense</label>
+        <label for="node-input-condense"><i class="fa fa-tag"></i> Condense</label>
         <input type="checkbox" id="node-input-condense" />
     </div>
 	
 
     <div class="form-row">
-        <label for="node-input-system"><i class="icon-tag"></i> System</label>
+        <label for="node-input-system"><i class="fa fa-tag"></i> System</label>
         <input type="text" id="node-input-system">
     </div>
 
@@ -448,7 +486,25 @@
 </script>
 
 <script type="text/x-red" data-help-name="field list">
-    <p>Get the field list of an SAP table</p>
+    <p>Get the field definitions and descriptions of an SAP table.</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">table <span class="property-type">string</span></dt>
+        <dd>The SAP table name (e.g. <code>MARA</code>). Overrides the table configured in the node dialog.</dd>
+        <dt class="optional">condense <span class="property-type">boolean</span></dt>
+        <dd>If <code>true</code>, outputs a key-value object of field names to field descriptions. Overrides the checkbox in the node.</dd>
+        <dt class="optional">payload <span class="property-type">string | object</span></dt>
+        <dd>Alternatively, pass the table name as a string in <code>msg.payload</code> or an object with <code>QUERY_TABLE</code>.</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">array | object</span></dt>
+        <dd>An array of field metadata objects, or a condensed object mapping technical field names to display names if condensed.</dd>
+        <dt class="optional">sapError <span class="property-type">object</span></dt>
+        <dd>Contains SAP error information if the RFC fails.</dd>
+    </dl>
+    <h3>Details</h3>
+    <p>Use a <code>Catch</code> node to catch and process any errors encountered by the RFC.</p>
 </script>
 
 <script type="text/javascript">
@@ -457,7 +513,7 @@
         color: '#4091ed',
         defaults: {
 			name: {value:""},
-            table: {value:"", required: true},
+            table: {value:""},
 			condense: {value:"checked"},
 			system: {type:"saprfc-config", required: true},
         },
@@ -465,7 +521,7 @@
         outputs:1,
         icon: "file.png",
         label: function() {
-            return this.name||"fields of " + this.table;
+            return this.name||(this.table ? "fields of " + this.table : "field list");
         }
     });
 </script>
