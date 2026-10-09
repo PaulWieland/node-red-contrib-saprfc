@@ -88,6 +88,17 @@ module.exports = function(RED) {
 					client
 						.call(task.rfc_name, task.rfc_structure)
 						.then(res => {
+							if (task.bapiCommit) {
+								return client.call("BAPI_TRANSACTION_COMMIT", { WAIT: "X" }).then(commitRes => {
+									if (typeof res === "object" && res !== null) {
+										res.BAPI_TRANSACTION_COMMIT = commitRes;
+									}
+									return res;
+								});
+							}
+							return res;
+						})
+						.then(res => {
 							// release the connection
 							task.pool.release(client);
 
@@ -226,6 +237,8 @@ module.exports = function(RED) {
 
 				var rfcParams = (msg.payload !== undefined && typeof msg.payload === "object" && msg.payload !== null) ? msg.payload : {};
 
+				var bapiCommit = msg.bapiCommit !== undefined ? Boolean(msg.bapiCommit) : (config.bapiCommit === true || config.bapiCommit === "true");
+
 				node.systemConfig.queue.push({
 					pool: node.systemConfig.pool,
 					node: node,
@@ -245,6 +258,7 @@ module.exports = function(RED) {
 					},
 					rfc_name: rfcName,
 					rfc_structure: rfcParams,
+					bapiCommit: bapiCommit,
 					postProcessor: function(res) {
 						return res;
 					}

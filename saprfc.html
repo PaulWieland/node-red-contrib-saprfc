@@ -95,6 +95,12 @@
         <label for="node-input-remoteFunction"><i class="fa fa-tag"></i> Function To Call</label>
         <input type="text" id="node-input-remoteFunction" placeholder="Enter RFC Name">
     </div>
+
+    <div class="form-row">
+        <label for="node-input-bapiCommit"><i class="fa fa-check"></i> Auto Commit</label>
+        <input type="checkbox" id="node-input-bapiCommit" style="display: inline-block; width: auto; vertical-align: top;" />
+        <span style="font-size: 0.9em; margin-left: 5px;">Call BAPI_TRANSACTION_COMMIT immediately</span>
+    </div>
 	
     <div class="form-tips">
 	<p>The input payload will be passed to the RFC - use a function node to build an object matching the RFC's specific requirements.</p>
@@ -122,6 +128,8 @@
     <dl class="message-properties">
         <dt class="optional">rfc <span class="property-type">string</span></dt>
         <dd>The RFC function or BAPI name to call (e.g. <code>BAPI_USER_CHANGE</code>). Overrides the function configured in the node dialog.</dd>
+        <dt class="optional">bapiCommit <span class="property-type">boolean</span></dt>
+        <dd>If <code>true</code>, automatically calls <code>BAPI_TRANSACTION_COMMIT</code> before releasing the connection. Overrides the node dialog setting.</dd>
         <dt class="optional">payload <span class="property-type">object</span></dt>
         <dd>The input parameters / import structure to pass to the RFC.</dd>
     </dl>
@@ -144,7 +152,8 @@
         defaults: {
             name: {value:""},
 			system: {type:"saprfc-config", required: true},
-			remoteFunction: {value:""}
+			remoteFunction: {value:""},
+			bapiCommit: {value:false}
         },
         inputs:1,
         outputs:1,
