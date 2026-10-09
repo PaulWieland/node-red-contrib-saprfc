@@ -364,7 +364,12 @@
 					error: function(err){
 						// This is not conventional, but we need a way to output the sapError object to the debug window in case the ajax call fails
 						// node.error() is not in context here
-						RED.debug.handleDebugMessage({name:"error: read table",msg:err, level: 20});
+						var errMsg = err;
+						if (err && err.readyState !== undefined) {
+							// It's a jqXHR object (timeout or network error)
+							errMsg = "Error fetching table fields: Network timeout or server unreachable.";
+						}
+						RED.debug.handleDebugMessage({name:"error: read table",msg:errMsg, level: 20});
 						
 						// console.log("Error: ",err);
 					}
