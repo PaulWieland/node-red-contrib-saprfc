@@ -57,7 +57,7 @@ module.exports = function(RED) {
 							return client;
 						}
 						throw new Error("Connection dead");
-					}).catch(() => {
+					}).catch(err => {
 						task.node.status({
 							fill: "yellow",
 							shape: "dot",
@@ -67,8 +67,14 @@ module.exports = function(RED) {
 						if (typeof client.reopen === 'function') {
 							return client.reopen().then(() => client);
 						} else {
-							task.pool.release(client);
-							return task.pool.acquire();
+							// For node-rfc >= 2.x, a failed ping() triggers an internal auto-reconnect.
+							// We ping a second time to see if that auto-reconnect succeeded.
+							return client.ping().then(isAlive => {
+								if (isAlive === true) return client;
+								throw err;
+							}).catch(() => {
+								throw err;
+							});
 						}
 					});
 				})
@@ -468,12 +474,16 @@ module.exports = function(RED) {
 						return client;
 					}
 					throw new Error("Connection dead");
-				}).catch(() => {
+				}).catch(err => {
 					if (typeof client.reopen === 'function') {
 						return client.reopen().then(() => client);
 					} else {
-						pool.release(client);
-						return pool.acquire();
+						return client.ping().then(isAlive => {
+							if (isAlive === true) return client;
+							throw err;
+						}).catch(() => {
+							throw err;
+						});
 					}
 				});
 			})
