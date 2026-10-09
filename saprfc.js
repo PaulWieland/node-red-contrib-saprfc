@@ -51,6 +51,7 @@ module.exports = function(RED) {
 			});
 
 			task.pool.acquire()
+				.then(client => {
 					return client.ping().then(isAlive => {
 						if (isAlive === true) {
 							return client;
@@ -461,6 +462,7 @@ module.exports = function(RED) {
 		let pool = systemConfig.pool;
 
 		pool.acquire()
+			.then(client => {
 				return client.ping().then(isAlive => {
 					if (isAlive === true) {
 						return client;
