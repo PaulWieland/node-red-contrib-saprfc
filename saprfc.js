@@ -41,6 +41,8 @@ module.exports = function(RED) {
 			console.error("[sapRFC:pool]: ", err);
 		}
 
+		this.transactions = {};
+
 		// Build an async queue processor to limit the number of nodes submitting parallel requests to the pool
 		// ToDo: Check to see if the performance improves when using more than 4 connections. If yes, make queue limit a configurable option.
 		this.queue = async.queue(function(task, callback) {
@@ -50,34 +52,44 @@ module.exports = function(RED) {
 				text: "Connecting"
 			});
 
-			task.pool.acquire()
-				.then(client => {
-					return client.ping().then(isAlive => {
-						if (isAlive === true) {
-							return client;
-						}
-						throw new Error("Connection dead");
-					}).catch(err => {
-						task.node.status({
-							fill: "yellow",
-							shape: "dot",
-							text: "Reconnecting"
-						});
-						
-						if (typeof client.reopen === 'function') {
-							return client.reopen().then(() => client);
-						} else {
-							// For node-rfc >= 2.x, a failed ping() triggers an internal auto-reconnect.
-							// We ping a second time to see if that auto-reconnect succeeded.
-							return client.ping().then(isAlive => {
-								if (isAlive === true) return client;
-								throw err;
-							}).catch(() => {
-								throw err;
+			var txId = task.msg.sapTransactionId;
+			var isTx = txId && node.transactions && node.transactions[txId];
+			var acquirePromise;
+
+			if (isTx) {
+				acquirePromise = Promise.resolve(node.transactions[txId].client);
+			} else {
+				acquirePromise = task.pool.acquire()
+					.then(client => {
+						return client.ping().then(isAlive => {
+							if (isAlive === true) {
+								return client;
+							}
+							throw new Error("Connection dead");
+						}).catch(err => {
+							task.node.status({
+								fill: "yellow",
+								shape: "dot",
+								text: "Reconnecting"
 							});
-						}
+							
+							if (typeof client.reopen === 'function') {
+								return client.reopen().then(() => client);
+							} else {
+								// For node-rfc >= 2.x, a failed ping() triggers an internal auto-reconnect.
+								// We ping a second time to see if that auto-reconnect succeeded.
+								return client.ping().then(isAlive => {
+									if (isAlive === true) return client;
+									throw err;
+								}).catch(() => {
+									throw err;
+								});
+							}
+						});
 					});
-				})
+			}
+
+			acquirePromise
 				.then(client => {
 					// insert the current queue length into the status start text
 					task.status_start.text = `(${node.queue.length()}) ${task.status_start.text}`;
@@ -88,7 +100,7 @@ module.exports = function(RED) {
 					client
 						.call(task.rfc_name, task.rfc_structure)
 						.then(res => {
-							if (task.bapiCommit) {
+							if (task.bapiCommit && !isTx) {
 								// Check for errors in the RETURN structure/table
 								let hasError = false;
 								if (res.RETURN) {
@@ -118,7 +130,7 @@ module.exports = function(RED) {
 						})
 						.then(res => {
 							// release the connection
-							task.pool.release(client);
+							if (!isTx) { task.pool.release(client); }
 
 							// update the node status
 							task.node.status(task.status_success);
@@ -142,7 +154,7 @@ module.exports = function(RED) {
 						})
 						.catch(err => {
 							console.error("[sapRFC:call] ", err);
-							task.pool.release(client);
+							if (!isTx) { task.pool.release(client); }
 
 							task.node.status(task.status_error);
 
@@ -292,6 +304,110 @@ module.exports = function(RED) {
 	}
 
 	RED.nodes.registerType("call", sapRFCCallNode);
+
+
+	function sapRFCTransactionNode(config) {
+		try {
+			RED.nodes.createNode(this, config);
+			this.systemConfig = RED.nodes.getNode(config.system);
+			this.action = config.action;
+			var node = this;
+
+			node.on('input', function(msg, send, done) {
+				send = send || function() { node.send.apply(node, arguments); };
+				done = done || function(err) { if (err) node.error(err, msg); };
+
+				if (!node.systemConfig || !node.systemConfig.pool || !node.systemConfig.transactions) {
+					var sysErr = new Error("SAP System configuration node is not set or invalid");
+					node.status({ fill: "red", shape: "ring", text: "No system configured" });
+					node.error(sysErr, msg);
+					done(sysErr);
+					return;
+				}
+
+				if (node.action === "begin") {
+					node.status({ fill: "yellow", shape: "dot", text: "Acquiring..." });
+					node.systemConfig.pool.acquire().then(client => {
+						return client.ping().then(isAlive => {
+							if (isAlive) return client;
+							throw new Error("Connection dead");
+						}).catch(err => {
+							if (typeof client.reopen === 'function') return client.reopen().then(() => client);
+							throw err;
+						});
+					}).then(client => {
+						var txId = Date.now().toString(36) + Math.random().toString(36).substring(2);
+						msg.sapTransactionId = txId;
+						
+						var timeout = setTimeout(() => {
+							console.warn("[sapRFC] Transaction timeout for " + txId);
+							if (node.systemConfig.transactions[txId]) {
+								var txClient = node.systemConfig.transactions[txId].client;
+								txClient.call("BAPI_TRANSACTION_ROLLBACK").catch(()=>{})
+								.finally(() => {
+									node.systemConfig.pool.release(txClient);
+									delete node.systemConfig.transactions[txId];
+								});
+							}
+						}, 60000); // 60s timeout
+
+						node.systemConfig.transactions[txId] = {
+							client: client,
+							timeout: timeout
+						};
+						node.status({ fill: "green", shape: "dot", text: "Transaction Started" });
+						send(msg);
+						done();
+					}).catch(err => {
+						node.status({ fill: "red", shape: "dot", text: "Error" });
+						done(err);
+					});
+				} else if (node.action === "commit" || node.action === "rollback") {
+					var txId = msg.sapTransactionId;
+					if (!txId || !node.systemConfig.transactions[txId]) {
+						var err = new Error("No active transaction found for msg.sapTransactionId");
+						node.status({ fill: "red", shape: "ring", text: "No transaction" });
+						done(err);
+						return;
+					}
+
+					var tx = node.systemConfig.transactions[txId];
+					clearTimeout(tx.timeout);
+					var bapi = node.action === "commit" ? "BAPI_TRANSACTION_COMMIT" : "BAPI_TRANSACTION_ROLLBACK";
+					var params = node.action === "commit" ? { WAIT: "X" } : {};
+
+					node.status({ fill: "yellow", shape: "dot", text: node.action + "ing..." });
+					tx.client.call(bapi, params).then(res => {
+						if (typeof msg.payload === "object" && msg.payload !== null) {
+							msg.payload[bapi] = res;
+						} else {
+							msg.payload = res;
+						}
+						node.systemConfig.pool.release(tx.client);
+						delete node.systemConfig.transactions[txId];
+						delete msg.sapTransactionId;
+						node.status({ fill: "green", shape: "dot", text: node.action + " complete" });
+						send(msg);
+						done();
+					}).catch(err => {
+						node.systemConfig.pool.release(tx.client);
+						delete node.systemConfig.transactions[txId];
+						delete msg.sapTransactionId;
+						node.status({ fill: "red", shape: "dot", text: "Error" });
+						done(err);
+					});
+				}
+			});
+			
+			node.on('close', function() {
+				node.status({});
+			});
+		} catch (err) {
+			console.error("[sapRFC:sapRFCTransactionNode] ", err);
+		}
+	}
+
+	RED.nodes.registerType("transaction", sapRFCTransactionNode);
 
 	function sapRFCReadTable(config) {
 		RED.nodes.createNode(this, config);
