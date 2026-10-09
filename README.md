@@ -36,45 +36,45 @@ This node sets up a node-rfc connection pool and an async queue which limits the
 
 
 ## Field List
-The __field list__ node is the easiest to use. It is a wrapper around _RFC\_READ\_TABLE_ - you only need to enter the table name for which you would like to get the list of fields and wire it to a debug node to inspect the output.
+The __field list__ node is a wrapper around _RFC\_READ\_TABLE_ to get field metadata for an SAP table.
 
-Use the condense flag to convert the standard output from the RFC to a simple object where each property is the technical name of the table and it's value is the display name.
+- **Table:** Configure in the node dialog or override dynamically with `msg.table` (or string `msg.payload`).
+- **Condense:** Check in the node dialog or set `msg.condense = true` to convert the standard RFC output to a key-value object (`{ FIELDNAME: FIELDTEXT }`).
 
 ## Read Table
-The __read table__ node is a wrapper around _RFC\_READ\_TABLE_. It converts the result into a native Array of JS Objects, each representing one result row.
+The __read table__ node queries SAP tables using _RFC\_READ\_TABLE_ and returns an array of JavaScript objects.
 
-To use the node, enter the table name and click the _Fetch Fields_ button to get all the fields of the table. Then select the fields you wish to include in the output. You will also want to use a _function_ node pass a structure with additional parameters, such as ROWCOUNT, OPTIONS, etc.
-Here is an example function node which builds the import structure:
+To use the node, you can configure the table name and select fields via the UI (_Fetch Fields_), or provide parameters dynamically on the incoming `msg`:
 
-```javascript
-var date = new Date();
+* `msg.table` (string): Target SAP table (e.g. `"MARA"`, `"KNA1"`).
+* `msg.fields` (array or comma-separated string): Fields to return (e.g. `["MATNR", "MTART"]` or `"MATNR, MTART"`).
+* `msg.options` (array or string): WHERE conditions (e.g. `["ERSDA >= '20230101'"]`).
+* `msg.rowcount` (number): Max number of rows to return (default: `0` / all).
+* `msg.rowskips` (number): Number of rows to skip (default: `0`).
 
-msg.payload = {
-  OPTIONS: ["ERSDA >= '"+date.getFullYear()+""+("0" + (date.getMonth() - 2)).slice(-2)+""+("0" + date.getDate()).slice(-2)+"'"],
-  ROWCOUNT: 10
-}
-return msg;
-```
-
-You could also specify the table and field list in the input payload instead of configuring them in the GUI:
+Alternatively, pass the raw SAP query structure inside `msg.payload`:
 
 ```javascript
 msg.payload = {
   QUERY_TABLE: "MARA",
-  FIELDS: ["MATNR","ERSDA","ERNAM"],
-  OPTIONS: ["ERSDA >= '"+date.getFullYear()+""+("0" + (date.getMonth() - 2)).slice(-2)+""+("0" + date.getDate()).slice(-2)+"'"],
+  FIELDS: ["MATNR", "ERSDA", "ERNAM"],
+  OPTIONS: ["ERSDA >= '20230101'"],
   ROWCOUNT: 10
-}
+};
+return msg;
 ```
-
 
 ## Call
 
-The __call__ node allows you to call any SAP RFC you would like. Just like the __read table__ node, you must use a _function_ node to build and pass the import parameters.
+The __call__ node executes any SAP RFC or BAPI.
 
-This example shows how you would build an import structure for _BAPI\_USER\_CHANGE_ to update a user's email address:
+- **Function Name:** Configure in the node dialog or override dynamically with `msg.rfc`.
+- **Import Parameters:** Passed in `msg.payload`.
+
+Example function node building an import structure for _BAPI\_USER\_CHANGE_:
 
 ```javascript
+msg.rfc = "BAPI_USER_CHANGE";
 msg.payload = {
   USERNAME: "SOME_SAP_USER",
   ADDRESS: {
@@ -83,7 +83,7 @@ msg.payload = {
   ADDRESSX: {
     E_MAIL: "X"
   }
-}
+};
 return msg;
 ```
 
