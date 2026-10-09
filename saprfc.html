@@ -95,6 +95,12 @@
         <label for="node-input-remoteFunction"><i class="fa fa-tag"></i> Function To Call</label>
         <input type="text" id="node-input-remoteFunction" placeholder="Enter RFC Name">
     </div>
+
+    <div class="form-row">
+        <label for="node-input-bapiCommit"><i class="fa fa-check"></i> Auto Commit</label>
+        <input type="checkbox" id="node-input-bapiCommit" style="display: inline-block; width: auto; vertical-align: top;" />
+        <span style="font-size: 0.9em; margin-left: 5px;">Call BAPI_TRANSACTION_COMMIT immediately</span>
+    </div>
 	
     <div class="form-tips">
 	<p>The input payload will be passed to the RFC - use a function node to build an object matching the RFC's specific requirements.</p>
@@ -122,6 +128,8 @@
     <dl class="message-properties">
         <dt class="optional">rfc <span class="property-type">string</span></dt>
         <dd>The RFC function or BAPI name to call (e.g. <code>BAPI_USER_CHANGE</code>). Overrides the function configured in the node dialog.</dd>
+        <dt class="optional">bapiCommit <span class="property-type">boolean</span></dt>
+        <dd>If <code>true</code>, automatically calls <code>BAPI_TRANSACTION_COMMIT</code> before releasing the connection. Overrides the node dialog setting.</dd>
         <dt class="optional">payload <span class="property-type">object</span></dt>
         <dd>The input parameters / import structure to pass to the RFC.</dd>
     </dl>
@@ -144,7 +152,8 @@
         defaults: {
             name: {value:""},
 			system: {type:"saprfc-config", required: true},
-			remoteFunction: {value:""}
+			remoteFunction: {value:""},
+			bapiCommit: {value:false}
         },
         inputs:1,
         outputs:1,
@@ -155,6 +164,66 @@
     });
 </script>
 	
+
+
+<script type="text/x-red" data-template-name="transaction">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+    <div class="form-row">
+        <label for="node-input-system"><i class="fa fa-tag"></i> System</label>
+        <input type="text" id="node-input-system">
+    </div>
+    <div class="form-row">
+        <label for="node-input-action"><i class="fa fa-tasks"></i> Action</label>
+        <select id="node-input-action">
+            <option value="begin">Begin Transaction</option>
+            <option value="commit">Commit Transaction</option>
+            <option value="rollback">Rollback Transaction</option>
+        </select>
+    </div>
+    <div class="form-tips">
+        <p>Use this node to manage stateful SAP transactions across multiple nodes.</p>
+        <p><strong>Begin:</strong> Acquires a connection and attaches a transaction ID to the message. Subsequent RFC calls will reuse this connection.</p>
+        <p><strong>Commit / Rollback:</strong> Completes the transaction and releases the connection back to the pool.</p>
+        <p><em>Note:</em> Active transactions will automatically rollback and release if not completed within 60 seconds.</p>
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="transaction">
+    <p>Manage stateful SAP transactions (Begin, Commit, Rollback).</p>
+    <h3>Inputs</h3>
+    <dl class="message-properties">
+        <dt class="optional">sapTransactionId <span class="property-type">string</span></dt>
+        <dd>Required for <strong>Commit</strong> or <strong>Rollback</strong>. This is automatically attached to the message by a <strong>Begin</strong> node.</dd>
+    </dl>
+    <h3>Outputs</h3>
+    <dl class="message-properties">
+        <dt>sapTransactionId <span class="property-type">string</span></dt>
+        <dd>Attached by a <strong>Begin</strong> node to trace the transaction.</dd>
+    </dl>
+    <h3>Details</h3>
+    <p>Using this node allows you to tie multiple RFC calls together. When a transaction is active, intermediate <code>call</code> nodes will skip their auto-commit flag and execute on the shared connection.</p>
+</script>
+
+<script type="text/javascript">
+    RED.nodes.registerType('transaction',{
+        category: 'sapRFC',
+        color: '#4091ed',
+        defaults: {
+            name: {value:""},
+            system: {type:"saprfc-config", required: true},
+            action: {value:"begin"}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "arrow-in.png",
+        label: function() {
+            return this.name || (this.action ? this.action + " transaction" : "transaction");
+        }
+    });
+</script>
 
 <script type="text/x-red" data-template-name="read table">
 	<div class="form-row">
