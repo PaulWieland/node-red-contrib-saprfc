@@ -89,12 +89,30 @@ module.exports = function(RED) {
 						.call(task.rfc_name, task.rfc_structure)
 						.then(res => {
 							if (task.bapiCommit) {
-								return client.call("BAPI_TRANSACTION_COMMIT", { WAIT: "X" }).then(commitRes => {
-									if (typeof res === "object" && res !== null) {
-										res.BAPI_TRANSACTION_COMMIT = commitRes;
-									}
-									return res;
-								});
+								// Check for errors in the RETURN structure/table
+								let hasError = false;
+								if (res.RETURN) {
+									let retArray = Array.isArray(res.RETURN) ? res.RETURN : [res.RETURN];
+									hasError = retArray.some(r => r.TYPE === 'E' || r.TYPE === 'A');
+								}
+
+								if (hasError) {
+									return client.call("BAPI_TRANSACTION_ROLLBACK").then(rollbackRes => {
+										if (typeof res === "object" && res !== null) {
+											res.BAPI_TRANSACTION_ROLLBACK = rollbackRes;
+											res.bapiCommitStatus = "Rolled Back (Errors found)";
+										}
+										return res;
+									});
+								} else {
+									return client.call("BAPI_TRANSACTION_COMMIT", { WAIT: "X" }).then(commitRes => {
+										if (typeof res === "object" && res !== null) {
+											res.BAPI_TRANSACTION_COMMIT = commitRes;
+											res.bapiCommitStatus = "Committed";
+										}
+										return res;
+									});
+								}
 							}
 							return res;
 						})
