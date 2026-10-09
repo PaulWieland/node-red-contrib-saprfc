@@ -51,24 +51,25 @@ module.exports = function(RED) {
 			});
 
 			task.pool.acquire()
-				.then(client => {
-					let isAlive = client.isAlive !== false && client.alive !== false;
-					if (isAlive) {
-						return client;
-					}
-					
-					task.node.status({
-						fill: "yellow",
-						shape: "dot",
-						text: "Reconnecting"
+					return client.ping().then(isAlive => {
+						if (isAlive === true) {
+							return client;
+						}
+						throw new Error("Connection dead");
+					}).catch(() => {
+						task.node.status({
+							fill: "yellow",
+							shape: "dot",
+							text: "Reconnecting"
+						});
+						
+						if (typeof client.reopen === 'function') {
+							return client.reopen().then(() => client);
+						} else {
+							task.pool.release(client);
+							return task.pool.acquire();
+						}
 					});
-					
-					if (typeof client.reopen === 'function') {
-						return client.reopen().then(() => client);
-					} else {
-						task.pool.release(client);
-						return task.pool.acquire();
-					}
 				})
 				.then(client => {
 					// insert the current queue length into the status start text
@@ -460,17 +461,19 @@ module.exports = function(RED) {
 		let pool = systemConfig.pool;
 
 		pool.acquire()
-			.then(client => {
-				let isAlive = client.isAlive !== false && client.alive !== false;
-				if (isAlive) {
-					return client;
-				}
-				if (typeof client.reopen === 'function') {
-					return client.reopen().then(() => client);
-				} else {
-					pool.release(client);
-					return pool.acquire();
-				}
+				return client.ping().then(isAlive => {
+					if (isAlive === true) {
+						return client;
+					}
+					throw new Error("Connection dead");
+				}).catch(() => {
+					if (typeof client.reopen === 'function') {
+						return client.reopen().then(() => client);
+					} else {
+						pool.release(client);
+						return pool.acquire();
+					}
+				});
 			})
 			.then(client => {
 				client
