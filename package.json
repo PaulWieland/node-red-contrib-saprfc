@@ -14,7 +14,7 @@
   },
   "dependencies": {
 	  "node-rfc": ">=2.3.1",
-	  "async": ">=3.0.0"
+	  "async": "^3.2.2"
   },
   "keywords": [
     "node-red",
