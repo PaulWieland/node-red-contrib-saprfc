@@ -109,7 +109,7 @@ module.exports = function(RED) {
 								}
 
 								if (hasError) {
-									return client.call("BAPI_TRANSACTION_ROLLBACK").then(rollbackRes => {
+									return client.call("BAPI_TRANSACTION_ROLLBACK", {}).then(rollbackRes => {
 										if (typeof res === "object" && res !== null) {
 											res.BAPI_TRANSACTION_ROLLBACK = rollbackRes;
 											res.bapiCommitStatus = "Rolled Back (Errors found)";
@@ -343,7 +343,7 @@ module.exports = function(RED) {
 							console.warn("[sapRFC] Transaction timeout for " + txId);
 							if (node.systemConfig.transactions[txId]) {
 								var txClient = node.systemConfig.transactions[txId].client;
-								txClient.call("BAPI_TRANSACTION_ROLLBACK").catch(()=>{})
+								txClient.call("BAPI_TRANSACTION_ROLLBACK", {}).catch(()=>{})
 								.finally(() => {
 									node.systemConfig.pool.release(txClient);
 									delete node.systemConfig.transactions[txId];
